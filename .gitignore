@@ -5,3 +5,5 @@
 /3DS Builder/bin/Release
 *.suo
 /3DS Builder/obj/x86/Release
+/3DS Builder/bin/Debug
+/3DS Builder/obj/x86/Debug
