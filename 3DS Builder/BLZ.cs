@@ -28,7 +28,8 @@ namespace blz
     {
         public static void main(String[] args)
         {
-            new BLZCoder(args);
+            var blz = new BLZCoder();
+            blz.CompressCode(args);
         }
 
         private static readonly int CMD_DECODE = 0;
@@ -63,7 +64,11 @@ namespace blz
                 pBar1.Invoke((MethodInvoker)delegate { pBar1.Value = pos; });
             else { pBar1.Value = pos; }
         }
-        public BLZCoder(string[] args, ProgressBar pBar = null)
+        public BLZCoder()
+        {
+
+        }
+        public void CompressCode(string[] args, ProgressBar pBar = null)
         {
             int cmd, mode = 0, arg;
             if (pBar == null) pBar1 = new ProgressBar();
@@ -109,6 +114,7 @@ namespace blz
 
             Console.Write(Environment.NewLine + "Done" + Environment.NewLine);
         }
+
         private void Save(String filename, byte[] buffer, int length)
         {
             Array.Resize(ref buffer, length);

@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using blz;
 using CTR;
 using _3DS_Builder.Properties;
+using System.Threading.Tasks;
 
 namespace _3DS_Builder
 {
@@ -50,6 +51,85 @@ namespace _3DS_Builder
         public static Dictionary<ulong, string[]> RecognizedGames;
         internal static string LOGO_NAME;
         internal static bool Card2;
+
+        // Form Load - Used to handle commandline arguments.
+        private async void Form1_Load(object sender, EventArgs e)
+        {
+            var args = Environment.GetCommandLineArgs();
+            // Remove the control box
+            //if (args.Length > 3)
+            //{
+            //    this.ControlBox = false;
+            //}
+            if (args.Length > 3 && args[1] == "-romfs")
+            {
+                //Build just the romfs, for use with Hans
+                string ROMFS_PATH = args[2].Replace("/", "\\");
+                string SAVE_PATH = args[3].Replace("/", "\\");
+                await Task.Run(() => CTR_ROM.buildRomfs(ROMFS_PATH, SAVE_PATH, RTB_Progress, PB_Show));
+                this.Close();
+            }
+            else if (args.Length > 4)
+            {
+                //Build the entire 3DS ROM using commandline input.
+
+                string exefsPath = args[1].Replace("/", "\\");
+                string romfsPath = args[2].Replace("/", "\\");
+                string exheaderPath = args[3].Replace("/", "\\");
+
+                //romfs
+                TB_Romfs.Text = romfsPath;
+
+                //exefs; automatically compress code.bin if applicable
+                string[] files = (new DirectoryInfo(exefsPath).GetFiles().Select(f => Path.GetFileNameWithoutExtension(f.FullName)).ToArray());
+                if (((files.Contains("code") || files.Contains(".code")) && !(files.Contains(".code") && files.Contains("code"))) && files.Contains("banner") && files.Contains("icon") && files.Length < 10)
+                {
+                    FileInfo fi = (new DirectoryInfo(exefsPath)).GetFiles()[Math.Max(Array.IndexOf(files, "code"), Array.IndexOf(files, ".code"))];
+                    if (fi.Name == "code.bin")
+                    {
+                        string newName = fi.DirectoryName + Path.DirectorySeparatorChar + ".code.bin";
+                        File.Move(fi.FullName, newName);
+                        fi = new FileInfo(newName);
+                    }
+                    if (fi.Length % 0x200 == 0)
+                    {
+                        SetPrebuiltBoxes(false);
+                        await Task.Run(() =>
+                        {
+                            var blz = new BLZCoder();
+                            blz.CompressCode(new[] { "-en", fi.FullName }, PB_Show);
+                        });
+                        SetPrebuiltBoxes(true);
+                    }
+                    if (files.Contains("logo"))
+                    {
+                        File.Delete((new DirectoryInfo(exefsPath)).GetFiles()[Array.IndexOf(files, "logo")].FullName);
+                    }
+                    TB_Exefs.Text = exefsPath;
+                    //Validate_Go();
+                }
+                else
+                {
+                    //Skipping alert because to avoid interacting with the user.
+
+                    //Alert("Your selected ExeFS is missing something essential.");
+                }
+
+                FileInfo exfi = new FileInfo(exheaderPath);
+                TB_Exheader.Text = exheaderPath;
+                Exheader exh = new Exheader(TB_Exheader.Text);
+                if (RecognizedGames.ContainsKey(exh.TitleID))
+                {
+                    TB_Serial.Text = exh.GetSerial();
+                }
+
+                //Replacing / with \ because somewhere in buildROM, / doesn't work, while \ does.
+                TB_SavePath.Text = args[4].Replace("/", "\\");
+
+                //Build the ROM
+                await Task.Run(() => CTR_ROM.buildROM(Card2, LOGO_NAME, exefsPath, romfsPath, exheaderPath, TB_Serial.Text, TB_SavePath.Text, PB_Show, RTB_Progress));                
+            }
+        }
 
         // UI Alerts
         internal static DialogResult Alert(params string[] lines)
@@ -141,7 +221,7 @@ namespace _3DS_Builder
                 Validate_Go();
             }
         }
-        private void B_Exefs_Click(object sender, EventArgs e)
+        private async void B_Exefs_Click(object sender, EventArgs e)
         {
             if (threads > 0) { Alert("Please wait for all operations to finish first."); return; }
             if (CHK_PrebuiltExefs.Checked)
@@ -173,7 +253,16 @@ namespace _3DS_Builder
                     {
                         if (Prompt(MessageBoxButtons.YesNo, "Detected Decompressed code.bin.", "Compress? File will be replaced. Do not build an ExeFS with an uncompressed code.bin if the Exheader doesn't specify it.") == DialogResult.Yes)
                         {
-                            new Thread(() => { threads++; SetPrebuiltBoxes(false); new BLZCoder(new[] { "-en", fi.FullName }, PB_Show); SetPrebuiltBoxes(true); threads--; Alert("Compressed!"); }).Start();
+                            await Task.Run(() =>
+                            {
+                                threads++;
+                                SetPrebuiltBoxes(false);
+                                var blz = new BLZCoder();
+                                blz.CompressCode(new[] { "-en", fi.FullName }, PB_Show);
+                                SetPrebuiltBoxes(true);
+                                threads--;
+                                Alert("Compressed!");
+                            });
                         }
                     }
                     if (files.Contains("logo"))
