@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace CTR
@@ -15,7 +16,12 @@ namespace CTR
         public byte[] SuperBlockHash;
         public uint SuperBlockLen;
 
-        public RomFS(string fn, ProgressBar PB = null, RichTextBox RTB = null)
+        public RomFS()
+        {
+            
+        }
+
+        public void BuildRomFS(string fn, ProgressBar PB = null, RichTextBox RTB = null)
         {
             PB = PB ?? new ProgressBar();
             RTB = RTB ?? new RichTextBox();

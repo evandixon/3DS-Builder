@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Forms;
 using _3DS_Builder.Properties;
+using System.Threading.Tasks;
 
 namespace CTR
 {
@@ -14,7 +15,7 @@ namespace CTR
         public const uint MEDIA_UNIT_SIZE = 0x200;
 
         // Main wrapper that assembles the ROM based on the following specifications:
-        internal static bool buildROM(bool Card2, string LOGO_NAME,
+        internal static async Task<bool> buildROM(bool Card2, string LOGO_NAME,
             string EXEFS_PATH, string ROMFS_PATH, string EXHEADER_PATH,
             string SERIAL_TEXT, string SAVE_PATH,
             ProgressBar PB_Show = null, RichTextBox TB_Progress = null)
@@ -25,9 +26,13 @@ namespace CTR
             // Sanity check the input files.
             if (!((File.Exists(EXEFS_PATH) || Directory.Exists(EXEFS_PATH)) && (File.Exists(ROMFS_PATH) || Directory.Exists(ROMFS_PATH)) && File.Exists(EXHEADER_PATH))) return false;
 
-            var NCCH = setNCCH(EXEFS_PATH, ROMFS_PATH, EXHEADER_PATH, SERIAL_TEXT, LOGO_NAME, PB_Show, TB_Progress);
-            var NCSD = setNCSD(NCCH, Card2, PB_Show, TB_Progress);
-            bool success = writeROM(NCSD, SAVE_PATH, PB_Show, TB_Progress);
+            bool success=false;
+            await Task.Run(() =>
+            {
+                var NCCH = setNCCH(EXEFS_PATH, ROMFS_PATH, EXHEADER_PATH, SERIAL_TEXT, LOGO_NAME, PB_Show, TB_Progress);
+                var NCSD = setNCSD(NCCH, Card2, PB_Show, TB_Progress);
+                success = writeROM(NCSD, SAVE_PATH, PB_Show, TB_Progress);
+            });
             return success;
         }
 
@@ -71,7 +76,8 @@ namespace CTR
             updateTB(TB_Progress, "Adding ExeFS...");
             Content.exefs = new ExeFS(EXEFS_PATH);
             updateTB(TB_Progress, "Adding RomFS...");
-            Content.romfs = new RomFS(ROMFS_PATH, PB_Show, TB_Progress);
+            Content.romfs = new RomFS();
+            Content.romfs.BuildRomFS(ROMFS_PATH, PB_Show, TB_Progress);
 
             updateTB(TB_Progress, "Adding Logo...");
             Content.logo = (byte[])Resources.ResourceManager.GetObject(LOGO_NAME);

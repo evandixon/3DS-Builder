@@ -80,7 +80,7 @@ namespace _3DS_Builder
                 //romfs
                 TB_Romfs.Text = romfsPath;
 
-                //exefs; automatically compress code.bin if applicable
+                //exefs
                 string[] files = (new DirectoryInfo(exefsPath).GetFiles().Select(f => Path.GetFileNameWithoutExtension(f.FullName)).ToArray());
                 if (((files.Contains("code") || files.Contains(".code")) && !(files.Contains(".code") && files.Contains("code"))) && files.Contains("banner") && files.Contains("icon") && files.Length < 10)
                 {
@@ -91,15 +91,18 @@ namespace _3DS_Builder
                         File.Move(fi.FullName, newName);
                         fi = new FileInfo(newName);
                     }
-                    if (fi.Length % 0x200 == 0)
+                    if (args.Contains("-compressCode"))
                     {
-                        SetPrebuiltBoxes(false);
-                        await Task.Run(() =>
+                        if (fi.Length % 0x200 == 0)
                         {
-                            var blz = new BLZCoder();
-                            blz.CompressCode(new[] { "-en", fi.FullName }, PB_Show);
-                        });
-                        SetPrebuiltBoxes(true);
+                            SetPrebuiltBoxes(false);
+                            await Task.Run(() =>
+                            {
+                                var blz = new BLZCoder();
+                                blz.CompressCode(new[] { "-en", fi.FullName }, PB_Show);
+                            });
+                            SetPrebuiltBoxes(true);
+                        }
                     }
                     if (files.Contains("logo"))
                     {
@@ -127,7 +130,10 @@ namespace _3DS_Builder
                 TB_SavePath.Text = args[4].Replace("/", "\\");
 
                 //Build the ROM
-                await Task.Run(() => CTR_ROM.buildROM(Card2, LOGO_NAME, exefsPath, romfsPath, exheaderPath, TB_Serial.Text, TB_SavePath.Text, PB_Show, RTB_Progress));                
+                await CTR_ROM.buildROM(Card2, LOGO_NAME, exefsPath, romfsPath, exheaderPath, TB_Serial.Text, TB_SavePath.Text, PB_Show, RTB_Progress);
+
+                //Close the form
+                this.Close();      
             }
         }
 
@@ -156,7 +162,7 @@ namespace _3DS_Builder
 
             Validate_Go();
         }
-        private void B_Go_Click(object sender, EventArgs e)
+        private async void B_Go_Click(object sender, EventArgs e)
         {
             if (threads > 0) { Alert("Please wait for all operations to finish first."); return; }
 
@@ -167,14 +173,14 @@ namespace _3DS_Builder
             string SAVE_PATH = TB_SavePath.Text;
 
             Enabled = false;
-            new Thread(() =>
-            {
+            //new Thread(() =>
+            //{
                 threads++;
                 SetPrebuiltBoxes(false);
-                CTR_ROM.buildROM(Card2, LOGO_NAME, EXEFS_PATH, ROMFS_PATH, EXHEADER_PATH, SERIAL_TEXT, SAVE_PATH, PB_Show, RTB_Progress);
+                await CTR_ROM.buildROM(Card2, LOGO_NAME, EXEFS_PATH, ROMFS_PATH, EXHEADER_PATH, SERIAL_TEXT, SAVE_PATH, PB_Show, RTB_Progress);
                 SetPrebuiltBoxes(true);
                 threads--;
-            }).Start();
+            //}).Start();
             Enabled = true;
         }
         private void Validate_Go()
